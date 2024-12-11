@@ -7,12 +7,44 @@ import speech_recognition as sr
 import whisper
 import torch
 import re  # Add this import for regular expression operations
+from openai import OpenAI
+from elevenlabs.client import ElevenLabs
+from elevenlabs import play
 
 from datetime import datetime, timedelta
 from queue import Queue
 from time import sleep
 from sys import platform
 
+def get_gpt_response(prompt):
+    # Instantiate the OpenAI client
+    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))  # Use environment variable for API key
+
+    # Create a chat completion using the client
+    response = client.chat.completions.create(
+        model="gpt-4o",  # Specify the model
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+        max_tokens=150  # Adjust as needed
+    )
+    return response.choices[0].message.content.strip()
+
+# print("Testing:", get_gpt_response("testing run, please answer in a few words"))
+
+def speak_response(prompt):
+    print('Generating voice...')
+    # Generate speech audio from the prompt
+    audio = client.generate(
+        text=prompt,
+        voice="Sarah",  # Specify the voice; replace with your preferred voice
+        model="eleven_multilingual_v2"  # Specify the model
+    )
+    # Play the generated audio
+    play(audio)
+
+client = ElevenLabs()
+speak_response("testing")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -72,7 +104,7 @@ def main():
     transcription = ['']
 
     # Define key phrases to monitor
-    key_phrases = ["hello", "important", "urgent"]  # Example key phrases
+    key_phrases = ["hello", "question", "urgent"]  # Example key phrases
 
     # Standardize key phrases
     key_phrases = [phrase.strip().lower() for phrase in key_phrases]
@@ -139,6 +171,16 @@ def main():
                 for phrase in key_phrases:
                     if phrase in words:
                         print(f"Key phrase detected: {phrase}", flush=True)
+                
+                        # Send the transcribed text to GPT and get a response
+                        gpt_response = get_gpt_response(text)
+                        print(f"GPT Response: {gpt_response}")
+
+                        # Use ElevenLabs to speak the GPT response
+                        speak_response(gpt_response)
+
+                        ## TODO: Enable a continuous "listen" model until the convo is over
+
                 # Flush stdout.
                 print('', end='', flush=True)
             else:
